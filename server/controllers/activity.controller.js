@@ -36,3 +36,4 @@ export class ActivityController {
 }
 
 export const activityController = new ActivityController();
+

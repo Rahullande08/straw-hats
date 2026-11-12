@@ -260,6 +260,39 @@ CREATE TABLE system_settings (
 );
 ```
 
+### 2.15 `idempotency_keys`
+Stores client request deduplication keys to prevent double-charging and duplicate purchase creations.
+```sql
+CREATE TABLE idempotency_keys (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+  idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+  request_path VARCHAR(255) NOT NULL,
+  request_hash VARCHAR(64) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'PROCESSING' CHECK (status IN ('PROCESSING', 'COMPLETED', 'FAILED')),
+  response_code INT,
+  response_body JSONB,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 2.16 `webhook_events`
+Audit log and replay protection ledger for asynchronous payment webhooks (PayPal Sandbox).
+```sql
+CREATE TABLE webhook_events (
+  id VARCHAR(64) PRIMARY KEY,
+  provider VARCHAR(50) NOT NULL,
+  event_id VARCHAR(255) UNIQUE NOT NULL,
+  event_type VARCHAR(100) NOT NULL,
+  payload JSONB NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'RECEIVED' CHECK (status IN ('RECEIVED', 'PROCESSED', 'IGNORED', 'FAILED')),
+  signature_verified BOOLEAN NOT NULL DEFAULT false,
+  processed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ---
 
 ## 3. Database Indexes
@@ -274,3 +307,7 @@ To maintain sub-millisecond lookups under high query volumes, the following perf
 - `idx_audit_created`: `audit_logs(created_at)`
 - `idx_audit_entity`: `audit_logs(entity_type, entity_id)`
 - `idx_audit_event_hash`: `audit_logs(event_hash)`
+- `idx_idempotency_key`: `idempotency_keys(idempotency_key)`
+- `idx_webhook_events_event_id`: `webhook_events(event_id)`
+
+

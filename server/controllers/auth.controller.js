@@ -79,6 +79,36 @@ export class AuthController {
       next(err);
     }
   }
+
+  async getMe(req, res, next) {
+    try {
+      const token = req.cookies?.mandate_gateway_session || req.headers['x-session-token'];
+      const user = await authService.getCurrentUser(token) || req.user;
+      res.json({
+        success: true,
+        data: user,
+        user: user,
+        message: 'Current operator profile retrieved'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async revokeSessions(req, res, next) {
+    try {
+      const userId = req.user?.id || 'usr_elena_vance';
+      await authService.revokeAllSessions(userId);
+      res.clearCookie('mandate_gateway_session');
+      res.json({
+        success: true,
+        message: 'All active sessions revoked successfully'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const authController = new AuthController();
+

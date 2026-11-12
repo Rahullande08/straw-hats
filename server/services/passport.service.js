@@ -43,6 +43,14 @@ export class PassportService {
     return rows.map(r => this.formatPassportForClient(r));
   }
 
+  async getPassportById(id, userId) {
+    const p = await passportRepository.findById(id, userId);
+    if (!p) {
+      throw new NotFoundError(`Agent passport #${id} not found`);
+    }
+    return this.formatPassportForClient(p);
+  }
+
   async createPassport({ userId, agentName, spendingCeiling = 15000, allowedCategories = ['Hardware & Peripherals'] }) {
     if (!agentName || typeof agentName !== 'string' || !agentName.trim()) {
       throw new BadRequestError('Agent name is required');

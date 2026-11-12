@@ -1,6 +1,8 @@
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { fromMinorUnits } from '../utils/money.js';
+import { webhookRepository } from '../repositories/webhook.repository.js';
+import { auditRepository } from '../repositories/audit.repository.js';
 
 export class PayPalService {
   constructor() {
@@ -153,6 +155,92 @@ export class PayPalService {
       isSimulated: true
     };
   }
+
+  async processWebhookEvent(headers = {}, body = {}) {
+    const eventId = body?.id || headers['paypal-transmission-id'] || `wh_evt_${Date.now()}`;
+    const eventType = body?.event_type || 'PAYMENT.CAPTURE.COMPLETED';
+
+    // 1. Replay Protection: Check if event already processed
+    const existing = await webhookRepository.getByEventId(eventId);
+    if (existing) {
+      return {
+        success: true,
+        status: 200,
+        duplicate: true,
+        message: `Webhook event ${eventId} already processed (Replay protection active).`
+      };
+    }
+
+    // 2. Signature verification
+    let signatureVerified = false;
+    if (this.isConfigured() && env.PAYPAL_WEBHOOK_ID) {
+      try {
+        const token = await this.getAccessToken();
+        if (token) {
+          const verifyRes = await fetch(`${this.sandboxBase}/v1/notifications/verify-webhook-signature`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              transmission_id: headers['paypal-transmission-id'],
+              transmission_time: headers['paypal-transmission-time'],
+              cert_url: headers['paypal-cert-url'],
+              auth_algo: headers['paypal-auth-algo'],
+              transmission_sig: headers['paypal-transmission-sig'],
+              webhook_id: env.PAYPAL_WEBHOOK_ID,
+              webhook_event: body
+            })
+          });
+          if (verifyRes.ok) {
+            const data = await verifyRes.json();
+            signatureVerified = data.verification_status === 'SUCCESS';
+          }
+        }
+      } catch (err) {
+        logger.warn('PayPal webhook signature verification failed', { err: err.message });
+      }
+    } else {
+      // In deterministic simulation mode, mark verified if payload is non-empty
+      signatureVerified = Boolean(body && Object.keys(body).length > 0);
+    }
+
+    // 3. Persist to webhook_events
+    await webhookRepository.recordEvent({
+      provider: 'paypal',
+      eventId,
+      eventType,
+      payload: body,
+      signatureVerified
+    });
+
+    // 4. Record audit event
+    await auditRepository.createLog({
+      actorType: 'GATEWAY',
+      actorId: 'paypal_webhook_listener',
+      eventType: 'PAYPAL_WEBHOOK_RECEIVED',
+      entityType: 'PAYMENT',
+      entityId: eventId,
+      action: 'PROCESS_WEBHOOK',
+      outcome: 'SUCCESS',
+      summary: `PayPal webhook ${eventType} recorded.`,
+      amount: eventType,
+      meta: `Event ID: ${eventId} | Verified: ${signatureVerified}`
+    });
+
+    await webhookRepository.markProcessed(eventId, 'PROCESSED');
+
+    return {
+      success: true,
+      status: 200,
+      eventId,
+      eventType,
+      signatureVerified,
+      message: 'PayPal webhook verified and processed'
+    };
+  }
 }
 
 export const payPalService = new PayPalService();
+

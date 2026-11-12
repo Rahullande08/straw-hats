@@ -77,3 +77,4 @@ export function computeAuditEventHash({ previousHash = 'GENESIS_HASH_00000000000
   const canonical = canonicalJsonStringify(payload);
   return 'sha256:' + crypto.createHash('sha256').update(canonical).digest('hex');
 }
+

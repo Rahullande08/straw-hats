@@ -253,3 +253,4 @@ it('Auto-clears (ALLOW) fully compliant order within limits', () => {
 
 console.log(`\nPolicy Engine Unit Tests: ${passed} / ${total} passed.\n`);
 if (passed !== total) process.exit(1);
+

@@ -63,6 +63,17 @@ paths:
                   killSwitchActive: { type: boolean, example: false }
                   timestamp: { type: string, format: date-time }
 
+  /ready:
+    get:
+      tags: [Health & System]
+      summary: Service readiness check verifying database connectivity
+      operationId: getReady
+      responses:
+        '200':
+          description: System is ready and connected to PostgreSQL
+        '503':
+          description: System dependencies not ready
+
   /session:
     get:
       tags: [Session & Auth]

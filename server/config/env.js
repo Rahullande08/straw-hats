@@ -39,3 +39,4 @@ if (env.isProduction) {
     console.warn('[SECURITY WARNING] SESSION_SECRET is shorter than 32 characters in production!');
   }
 }
+

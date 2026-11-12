@@ -281,6 +281,25 @@ export class RequestController {
     }
   }
 
+  async cancelRequest(req, res, next) {
+    try {
+      const userId = req.user?.id || 'usr_elena_vance';
+      const userName = req.user?.name || 'Elena Vance';
+      const { reason } = req.body || {};
+      const updated = await approvalService.cancelRequest(req.params.id, userId, userName, reason);
+      const formatted = this.formatRequestForClient(updated);
+
+      res.json({
+        success: true,
+        data: formatted,
+        request: formatted,
+        message: 'Purchase request cancelled and budget reservation released.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getDisputePack(req, res, next) {
     try {
       const pack = await approvalService.generateDisputePack(req.params.id);
@@ -296,3 +315,4 @@ export class RequestController {
 }
 
 export const requestController = new RequestController();
+

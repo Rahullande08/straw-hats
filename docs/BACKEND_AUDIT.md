@@ -204,7 +204,26 @@ To support atomic transactions, concurrency, and multi-tenant isolation, 14 norm
 
 ---
 
-## 9. Conclusion & Action Plan
+## 9. Key Audit Findings & Architectural Resolutions (Discoveries A–J)
+
+During the comprehensive audit, ten critical technical factors were isolated and systematically addressed in the revived backend architecture:
+
+| Finding ID | Audit Discovery | Root Cause & Security Implication | Permanent Architectural Resolution |
+|---|---|---|---|
+| **A** | `server/index.js` contains global in-memory state | Arrays (`mandates`, `requests`, `auditLogs`) in process memory reset on reboot and do not scale. | Replaced with normalized PostgreSQL tables, versioned SQL migrations (`001_initial_schema.sql`), and repository DAOs. |
+| **B** | Session user was pre-authenticated | Endpoints assumed operator "Elena Vance" was logged in without credentials check. | Implemented proper session tokens (`sessions` table), HttpOnly cookie delivery, Bearer header support, and `/api/auth/me`. |
+| **C** | Auth middleware did not verify actual credentials | Simulated passphrases accepted any text without password hashing. | Implemented bcrypt password verification, SHA-256 session token hashing, expiration, and revocation. |
+| **D** | Agent passport demo records contained hardcoded token values | Passports stored plain tokens (`0x9A48F9E0...`) directly in memory. | Passports now store SHA-256 token digests in the database; full tokens are only displayed once on minting. |
+| **E** | Simulated attestation and compliance labels | Labels like "PCI-DSS 4.0 Attested" and "Hardware Enclave SGX" were static strings. | Replaced with truthful disclosures: software cryptographic token verification using SHA-256 digests. |
+| **F** | Merchant validation used unsafe substring matching | Matching allowed `amazon.co.uk.evil.com` if `amazon` was an allowed substring. | Replaced with canonical domain normalization, exact host matching, and Levenshtein distance anti-typosquatting checks. |
+| **G** | Budget evaluation lacked atomic reservation transactions | Concurrent requests against the same mandate risked double-spending. | Implemented two-phase atomic budget reservation (`reserved_amount`) inside PostgreSQL row-level locks (`SELECT ... FOR UPDATE`). |
+| **H** | PayPal configuration supported deterministic mock mode | When credentials were absent, the app lacked a real PayPal REST adapter. | Implemented modular PayPal REST v2 Orders adapter with OAuth 2.0 token caching and graceful deterministic mock fallback (`NOT_CONFIGURED`). |
+| **I** | Embedded `pg-mem` as in-memory fallback | Local dev workstations lacked running PostgreSQL instances. | Configured `server/config/database.js` to use `pg.Pool` when `DATABASE_URL` is set, with seamless fallback to `pg-mem` for zero-dependency test runs. |
+| **J** | `package.json` lacked explicit production drivers | Production deployment required `pg`, `zod`, and dependencies declared under production dependencies. | Added `pg`, `zod`, `express`, `cors`, `bcryptjs`, and `helmet` under production `"dependencies"` in `package.json`. |
+
+---
+
+## 10. Conclusion & Action Plan
 
 The repository is structurally clean and passes all 85 existing frontend tests. The backend revival can proceed with zero regression to the existing frontend. 
 
@@ -224,3 +243,4 @@ The repository is structurally clean and passes all 85 existing frontend tests. 
 - Phase 13 & 14: Comprehensive API compatibility testing with frontend integration.
 - Phase 15 & 16: Automated unit/integration test suite, deployment guides, and Docker Compose.
 - Phase 17: Git commit and push to remote.
+

@@ -15,6 +15,20 @@ export class PassportController {
     }
   }
 
+  async getPassportById(req, res, next) {
+    try {
+      const userId = req.user?.id || 'usr_elena_vance';
+      const passport = await passportService.getPassportById(req.params.id, userId);
+      res.json({
+        success: true,
+        data: passport,
+        passport
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async createPassport(req, res, next) {
     try {
       const userId = req.user?.id || 'usr_elena_vance';
@@ -63,3 +77,4 @@ export class PassportController {
 }
 
 export const passportController = new PassportController();
+

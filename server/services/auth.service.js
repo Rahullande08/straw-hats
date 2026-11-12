@@ -148,6 +148,23 @@ export class AuthService {
     return { success: true };
   }
 
+  async revokeAllSessions(userId) {
+    if (!userId) return;
+    await userRepository.revokeAllUserSessions(userId);
+    await auditRepository.createLog({
+      userId,
+      actorType: 'USER',
+      actorId: userId,
+      eventType: 'SECURITY_SESSIONS_REVOKED',
+      entityType: 'USER',
+      entityId: userId,
+      action: 'REVOKE_ALL_SESSIONS',
+      outcome: 'SUCCESS',
+      summary: `All active sessions revoked for user ${userId}.`
+    });
+    return { success: true };
+  }
+
   async getCurrentUser(sessionToken) {
     if (!sessionToken) {
       // In demo mode without token, return demo account profile

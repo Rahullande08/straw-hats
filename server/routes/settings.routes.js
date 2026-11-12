@@ -6,5 +6,7 @@ const router = Router();
 
 router.get('/settings', settingsController.getSettings.bind(settingsController));
 router.post('/settings', requireAuth, settingsController.saveSettings.bind(settingsController));
+router.put('/settings', requireAuth, settingsController.saveSettings.bind(settingsController));
 
 export default router;
+

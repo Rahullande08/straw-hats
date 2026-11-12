@@ -10,6 +10,8 @@ router.get('/requests/:id', requestController.getRequestById.bind(requestControl
 router.post('/requests', requireAuth, validateBody(['itemTitle', 'amount', 'merchant']), requestController.createRequest.bind(requestController));
 router.post('/requests/:id/approve', requireAuth, requestController.approveRequest.bind(requestController));
 router.post('/requests/:id/reject', requireAuth, requestController.rejectRequest.bind(requestController));
+router.post('/requests/:id/cancel', requireAuth, requestController.cancelRequest.bind(requestController));
 router.get('/requests/:id/dispute-pack', requestController.getDisputePack.bind(requestController));
 
 export default router;
+

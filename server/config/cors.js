@@ -21,3 +21,4 @@ export function createCorsMiddleware() {
     maxAge: 86400,
   });
 }
+

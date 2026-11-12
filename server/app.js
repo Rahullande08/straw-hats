@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { createHelmetMiddleware } from './securityMiddleware.js';
 import { createCorsMiddleware } from './config/cors.js';
 import { requestIdMiddleware } from './middleware/requestId.middleware.js';
+import { idempotencyMiddleware } from './middleware/idempotency.middleware.js';
 import { standardLimiter } from './middleware/rateLimit.middleware.js';
 import { authenticate } from './middleware/auth.middleware.js';
 import { errorHandler } from './middleware/error.middleware.js';
@@ -42,12 +43,13 @@ export function createApp() {
   app.use(cookieParser());
   app.use(express.json({ limit: '64kb' }));
   app.use(requestIdMiddleware);
+  app.use(idempotencyMiddleware());
 
   // Global Standard Rate Limiter on /api
   app.use('/api', standardLimiter);
 
-  // Health Endpoint (distinguishes process health from database readiness)
-  app.get('/api/health', async (req, res) => {
+  // Top-level Process Health (Liveness Probe)
+  app.get(['/health', '/api/health'], async (req, res) => {
     const dbHealth = await checkDatabaseHealth();
     const killSwitch = await killSwitchService.getStatus();
     const activeMandates = await mandateRepository.findAllByUserId('usr_elena_vance').catch(() => []);
@@ -68,11 +70,30 @@ export function createApp() {
     });
   });
 
+  // Dependency Readiness Check (Readiness Probe)
+  app.get(['/ready', '/api/ready'], async (req, res) => {
+    const dbHealth = await checkDatabaseHealth();
+    if (!dbHealth.connected) {
+      return res.status(503).json({
+        status: 'NOT_READY',
+        error: 'Database connection failed',
+        database: dbHealth
+      });
+    }
+
+    res.json({
+      status: 'READY',
+      database: dbHealth,
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Session Authentication Middleware
   app.use('/api', authenticate);
 
   // Register API Routes
   app.use('/api', authRoutes);
+  app.use('/api/auth', authRoutes);
   app.use('/api', dashboardRoutes);
   app.use('/api', mandatesRoutes);
   app.use('/api', agentRoutes);
@@ -103,3 +124,4 @@ export function createApp() {
 
   return app;
 }
+

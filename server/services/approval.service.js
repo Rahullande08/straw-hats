@@ -155,6 +155,59 @@ export class ApprovalService {
     return requestRepository.findById(requestId);
   }
 
+  async cancelRequest(requestId, userId, _userName = 'Elena Vance', reason = null) {
+    const reqItem = await requestRepository.findById(requestId);
+    if (!reqItem) {
+      throw new NotFoundError(`Purchase request #${requestId} not found`);
+    }
+
+    if (reqItem.status === 'AUTO_CLEARED' || reqItem.status === 'APPROVED' || reqItem.status === 'COMPLETED') {
+      throw new ConflictError(
+        `Request #${reqItem.id} has already been settled and cannot be cancelled retroactively.`
+      );
+    }
+
+    await runInTransaction(async (client) => {
+      // Release any reserved budget hold
+      await mandateRepository.releaseReservedBudget(reqItem.mandate_id, reqItem.amount_minor, client);
+
+      // Update request status to CANCELLED
+      await requestRepository.updateStatus(
+        requestId,
+        'CANCELLED',
+        {
+          decisionReason: reason || 'Purchase request cancelled by operator or autonomous agent.'
+        },
+        client
+      );
+
+      // Cancel associated payment record
+      const payment = await paymentRepository.getPaymentByRequestId(requestId);
+      if (payment) {
+        await paymentRepository.updatePaymentStatus(payment.id, 'FAILED_OR_CANCELLED', null, client);
+      }
+    });
+
+    const currency = reqItem.currency || 'INR';
+    const amountFormatted = formatCurrency(reqItem.amount_minor, currency);
+
+    await auditRepository.createLog({
+      userId,
+      actorType: 'USER',
+      actorId: userId,
+      eventType: 'PURCHASE_CANCELLED',
+      entityType: 'PURCHASE_REQUEST',
+      entityId: requestId,
+      action: 'CANCEL_PURCHASE',
+      outcome: 'SUCCESS',
+      summary: `${reqItem.product_title} cancelled. Reserved budget released.`,
+      amount: amountFormatted,
+      meta: 'Hold released back to active spending mandate'
+    });
+
+    return requestRepository.findById(requestId);
+  }
+
   async generateDisputePack(requestId) {
     const reqItem = await requestRepository.findById(requestId);
     if (!reqItem) {
@@ -192,3 +245,4 @@ export class ApprovalService {
 }
 
 export const approvalService = new ApprovalService();
+

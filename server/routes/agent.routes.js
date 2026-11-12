@@ -8,5 +8,7 @@ const router = Router();
 router.post('/agent/parse-brief', aiProcurementLimiter, validateBody(['prompt']), agentController.parseBrief.bind(agentController));
 router.post('/agent/evaluate-candidates', aiProcurementLimiter, agentController.evaluateCandidates.bind(agentController));
 router.post('/agent/search', aiProcurementLimiter, agentController.search.bind(agentController));
+router.post('/agent/search-products', aiProcurementLimiter, agentController.search.bind(agentController));
 
 export default router;
+

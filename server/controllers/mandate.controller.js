@@ -76,6 +76,22 @@ export class MandateController {
       next(err);
     }
   }
+
+  async updateStatus(req, res, next) {
+    try {
+      const userId = req.user?.id || 'usr_elena_vance';
+      const mandate = await mandateService.updateStatus(req.params.id, userId, req.body?.status);
+      res.json({
+        success: true,
+        data: mandate,
+        mandate,
+        message: `Mandate #${mandate.id} status is now ${mandate.status}`
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const mandateController = new MandateController();
+

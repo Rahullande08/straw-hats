@@ -160,6 +160,37 @@ export class MandateService {
     return this.getMandateById(id, userId);
   }
 
+  async updateStatus(id, userId, status) {
+    const existing = await mandateRepository.findById(id, userId);
+    if (!existing) {
+      throw new NotFoundError(`Mandate #${id} not found`);
+    }
+
+    const validStatuses = ['ACTIVE', 'PAUSED', 'REVOKED', 'EXPIRED'];
+    const normalized = (status || '').toUpperCase();
+    if (!validStatuses.includes(normalized)) {
+      throw new BadRequestError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    await mandateRepository.setStatus(id, userId, normalized);
+
+    await auditRepository.createLog({
+      userId,
+      actorType: 'USER',
+      actorId: userId,
+      eventType: 'MANDATE_STATUS_CHANGED',
+      entityType: 'MANDATE',
+      entityId: id,
+      action: 'UPDATE_STATUS',
+      outcome: 'SUCCESS',
+      summary: `Mandate #${id} status changed from ${existing.status} to ${normalized}.`,
+      amount: `Status: ${normalized}`,
+      meta: 'Sovereign operator state change'
+    });
+
+    return this.getMandateById(id, userId);
+  }
+
   async toggleRevoke(id, userId) {
     const existing = await mandateRepository.findById(id, userId);
     if (!existing) {
@@ -188,3 +219,4 @@ export class MandateService {
 }
 
 export const mandateService = new MandateService();
+

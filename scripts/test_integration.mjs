@@ -521,6 +521,176 @@ async function runAll() {
     return `Provisioned ${json.passport.agentName} (ID: ${json.passport.id}, Token: ${json.passport.tokenPrefix})`;
   });
 
+  // 34. Readiness Probe Check
+  await test('Backend GET /ready & /api/ready (Readiness Probe)', async () => {
+    const res = await fetch(`${BACKEND_URL}/ready`);
+    if (!res.ok) throw new Error(`Expected HTTP 200 from /ready, got ${res.status}`);
+    const json = await res.json();
+    if (json.status !== 'READY' || !json.database?.connected) {
+      throw new Error(`Readiness check failed: ${JSON.stringify(json)}`);
+    }
+    return `Service is READY (Database: ${json.database.status}, Driver: ${json.database.driver})`;
+  });
+
+  // 35. Authenticated Operator Profile (/api/auth/me)
+  await test('Backend GET /api/auth/me (Current Operator Profile)', async () => {
+    const res = await fetch(`${BACKEND_URL}/api/auth/me`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} from /api/auth/me`);
+    const json = await res.json();
+    if (!json.success || !json.user) throw new Error('Failed to retrieve operator profile');
+    return `Operator: ${json.user.name} (${json.user.email})`;
+  });
+
+  // 36. Mandate Status Lifecycle (PATCH /api/mandates/:id/status)
+  await test('Backend PATCH /api/mandates/:id/status (Pause and Resume Mandate)', async () => {
+    // Pause mandate M-902
+    const pauseRes = await fetch(`${BACKEND_URL}/api/mandates/M-902/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'PAUSED' })
+    });
+    const pauseJson = await pauseRes.json();
+    if (!pauseJson.success || pauseJson.mandate?.status !== 'PAUSED') {
+      throw new Error(`Failed to pause mandate: ${JSON.stringify(pauseJson)}`);
+    }
+
+    // Resume mandate M-902 back to ACTIVE
+    const resumeRes = await fetch(`${BACKEND_URL}/api/mandates/M-902/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' })
+    });
+    const resumeJson = await resumeRes.json();
+    if (!resumeJson.success || resumeJson.mandate?.status !== 'ACTIVE') {
+      throw new Error('Failed to resume mandate');
+    }
+    return `Mandate M-902 successfully paused and restored to ACTIVE`;
+  });
+
+  // 37. Purchase Request Cancellation Lifecycle (POST /api/requests/:id/cancel)
+  await test('Backend POST /api/requests/:id/cancel (Cancel and Release Hold)', async () => {
+    // 1. Create a pending request requiring HITL review (> ₹5000)
+    const createRes = await fetch(`${BACKEND_URL}/api/requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemTitle: 'Cancelable Ergonomic Footrest Pro',
+        amount: 6500,
+        currency: 'INR',
+        merchant: 'Amazon India',
+        mandateId: 'M-902',
+        agentId: 'pass_claude_shop'
+      })
+    });
+    const createJson = await createRes.json();
+    if (!createJson.success || !createJson.request) throw new Error('Failed to create cancelable request');
+    const reqId = createJson.request.id;
+
+    // 2. Cancel the request
+    const cancelRes = await fetch(`${BACKEND_URL}/api/requests/${reqId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'User requested order cancellation before checkout' })
+    });
+    const cancelJson = await cancelRes.json();
+    if (!cancelJson.success || cancelJson.request?.status !== 'CANCELLED') {
+      throw new Error(`Failed to cancel request #${reqId}: ${JSON.stringify(cancelJson)}`);
+    }
+    return `Request #${reqId} transitioned to CANCELLED and budget hold released`;
+  });
+
+  // 38. Single Agent Passport Lookup (GET /api/passports/:id)
+  await test('Backend GET /api/passports/:id', async () => {
+    const res = await fetch(`${BACKEND_URL}/api/passports/pass_claude_shop`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} fetching passport`);
+    const json = await res.json();
+    if (!json.success || json.passport?.id !== 'pass_claude_shop') {
+      throw new Error('Failed to fetch passport by ID');
+    }
+    return `Found passport: ${json.passport.agentName} (Ceiling: ₹${json.passport.spendingCeiling})`;
+  });
+
+  // 39. PayPal Webhook Processing & Replay Protection
+  await test('Backend POST /api/payments/webhook (PayPal Replay Protection)', async () => {
+    const mockEventId = `WH-EVT-TEST-${Date.now()}`;
+    const webhookPayload = {
+      id: mockEventId,
+      event_type: 'PAYMENT.CAPTURE.COMPLETED',
+      resource: {
+        id: 'CAP-TEST-8899',
+        amount: { value: '8495.00', currency_code: 'INR' },
+        status: 'COMPLETED'
+      }
+    };
+
+    // First delivery
+    const firstRes = await fetch(`${BACKEND_URL}/api/payments/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'paypal-transmission-id': mockEventId
+      },
+      body: JSON.stringify(webhookPayload)
+    });
+    const firstJson = await firstRes.json();
+    if (!firstJson.success || firstJson.status !== 200) {
+      throw new Error(`Webhook receipt failed: ${JSON.stringify(firstJson)}`);
+    }
+
+    // Replay duplicate delivery
+    const replayRes = await fetch(`${BACKEND_URL}/api/payments/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'paypal-transmission-id': mockEventId
+      },
+      body: JSON.stringify(webhookPayload)
+    });
+    const replayJson = await replayRes.json();
+    if (!replayJson.duplicate) {
+      throw new Error(`Replay protection failed; expected duplicate flag, got: ${JSON.stringify(replayJson)}`);
+    }
+    return `Event ${mockEventId} processed; duplicate correctly flagged with replay protection`;
+  });
+
+  // 40. Idempotency Key Middleware Deduplication
+  await test('Idempotency Key Middleware: Duplicate mutations return cached result', async () => {
+    const testKey = `test-idem-key-${Date.now()}`;
+    const payload = {
+      name: 'Idempotent Mandate Test',
+      category: 'Electronics & Computing',
+      budgetCeiling: 12000,
+      singlePurchaseLimit: 4000
+    };
+
+    // 1st request with Idempotency-Key
+    const res1 = await fetch(`${BACKEND_URL}/api/mandates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': testKey
+      },
+      body: JSON.stringify(payload)
+    });
+    const json1 = await res1.json();
+    if (!json1.success || !json1.mandate) throw new Error('First idempotent request failed');
+
+    // 2nd identical request with same Idempotency-Key
+    const res2 = await fetch(`${BACKEND_URL}/api/mandates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': testKey
+      },
+      body: JSON.stringify(payload)
+    });
+    const json2 = await res2.json();
+    if (json2.mandate?.id !== json1.mandate?.id) {
+      throw new Error(`Idempotency failed: generated different IDs ${json1.mandate?.id} vs ${json2.mandate?.id}`);
+    }
+    return `Idempotency verified: duplicate call returned cached mandate #${json2.mandate.id}`;
+  });
+
   console.log('\n=============================================');
   console.log('SUMMARY RESULTS:');
   const passed = results.filter(r => r.status === 'PASSED').length;

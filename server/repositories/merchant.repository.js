@@ -40,3 +40,4 @@ export class MerchantRepository {
 }
 
 export const merchantRepository = new MerchantRepository();
+

@@ -34,9 +34,14 @@ router.get('/payments/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-router.post('/payments/webhook', async (req, res) => {
-  // Webhook event receiver
-  res.json({ received: true, status: 'PROCESSED' });
+router.post('/payments/webhook', async (req, res, next) => {
+  try {
+    const result = await payPalService.processWebhookEvent(req.headers, req.body);
+    res.status(result.status || 200).json(result);
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;
+

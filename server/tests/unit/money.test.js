@@ -56,3 +56,4 @@ it('Formats currency strings properly', () => {
 
 console.log(`\nMoney Unit Tests: ${passed} / ${total} passed.\n`);
 if (passed !== total) process.exit(1);
+

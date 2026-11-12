@@ -161,3 +161,4 @@ server/
 - When `DATABASE_URL` is configured, `server/config/database.js` provisions a high-performance `pg.Pool` connection pool with SSL support.
 - When `DATABASE_URL` is omitted (local developer workstations or CI runners without running PostgreSQL daemons), the system boots an embedded in-memory PostgreSQL engine (`pg-mem`).
 - Identical SQL migrations (`001_initial_schema.sql`) and seed files (`001_seed_demo_data.sql`) execute on both drivers, guaranteeing zero environment drift.
+

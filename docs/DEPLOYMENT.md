@@ -104,3 +104,4 @@ Expect HTTP `200 OK` with `valid: true`.
 - [x] Enable SSL (`sslmode=require`) on external PostgreSQL connections.
 - [x] Ensure rate limiters are active to mitigate credential-stuffing and denial-of-service attempts.
 - [x] Verify that `dist/` is pre-built so the Express backend can serve both the API and client SPA under a single domain.
+

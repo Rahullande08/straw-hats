@@ -6,3 +6,4 @@ const router = Router();
 router.get('/dashboard', dashboardController.getDashboard.bind(dashboardController));
 
 export default router;
+

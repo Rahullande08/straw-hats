@@ -43,3 +43,4 @@ export class SettingsRepository {
 }
 
 export const settingsRepository = new SettingsRepository();
+

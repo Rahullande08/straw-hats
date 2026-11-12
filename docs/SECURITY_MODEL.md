@@ -92,3 +92,4 @@ Implemented in `server/services/killSwitch.service.js`:
 - Provides an immediate, centralized circuit breaker.
 - When toggled, all incoming purchase authorizations fail immediately with `503 Service Unavailable` or policy verdict `BLOCKED`.
 - State is persisted in PostgreSQL (`system_settings`) and logged to the cryptographic audit trail.
+

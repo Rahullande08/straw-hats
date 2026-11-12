@@ -35,3 +35,4 @@ router.post('/merchants/verify-domain', async (req, res, next) => {
 });
 
 export default router;
+

@@ -257,3 +257,38 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_user_setting UNIQUE(user_id, setting_key)
 );
+
+-- 15. Idempotency Keys Table
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+  idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+  request_path VARCHAR(255) NOT NULL,
+  request_hash VARCHAR(64) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'PROCESSING',
+  response_code INT,
+  response_body JSONB,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_key ON idempotency_keys(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_idempotency_expires_at ON idempotency_keys(expires_at);
+
+-- 16. Webhook Events Table (PayPal / External Provider Replay Protection)
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id VARCHAR(64) PRIMARY KEY,
+  provider VARCHAR(50) NOT NULL,
+  event_id VARCHAR(255) UNIQUE NOT NULL,
+  event_type VARCHAR(100) NOT NULL,
+  payload JSONB NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'RECEIVED',
+  signature_verified BOOLEAN NOT NULL DEFAULT false,
+  processed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_events_event_id ON webhook_events(event_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider);
+
+

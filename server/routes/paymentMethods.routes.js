@@ -11,3 +11,4 @@ router.post('/payment-methods/:id/toggle-freeze', requireAuth, paymentController
 router.post('/payment-methods/:id/limits', requireAuth, paymentController.updateLimits.bind(paymentController));
 
 export default router;
+

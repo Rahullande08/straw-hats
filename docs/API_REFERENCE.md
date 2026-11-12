@@ -21,8 +21,8 @@ Mandate Gateway supports three interchangeable authentication mechanisms:
 
 ### 2.1 System & Health
 
-#### `GET /api/health`
-Returns process status, database connectivity, and kill-switch state.
+#### `GET /health` or `GET /api/health`
+Returns process status, database connectivity, and kill-switch state (Liveness probe).
 - **Auth:** None (Public)
 - **Response `200 OK`:**
 ```json
@@ -30,9 +30,22 @@ Returns process status, database connectivity, and kill-switch state.
   "status": "UP",
   "service": "Mandate Gateway Core Engine",
   "version": "2.4.0",
-  "mode": "SANDBOX_SIMULATED",
+  "mode": "EMBEDDED_POSTGRES",
   "killSwitchActive": false,
   "database": { "status": "CONNECTED", "driver": "pg" },
+  "timestamp": "2026-11-12T18:00:00.000Z",
+  "uptime": 124
+}
+```
+
+#### `GET /ready` or `GET /api/ready`
+Readiness probe verifying external PostgreSQL database pool availability.
+- **Auth:** None (Public)
+- **Response `200 OK` (or `503 Service Unavailable` if database is disconnected):**
+```json
+{
+  "status": "READY",
+  "database": { "status": "CONNECTED", "driver": "pg", "connected": true },
   "timestamp": "2026-11-12T18:00:00.000Z"
 }
 ```
@@ -41,7 +54,7 @@ Returns process status, database connectivity, and kill-switch state.
 
 ### 2.2 Session & Authentication
 
-#### `POST /api/login`
+#### `POST /api/auth/login` (or `/api/login`)
 Authenticates an operator using email and password, returning an authenticated session.
 - **Auth:** None
 - **Request Body:**
@@ -65,7 +78,7 @@ Authenticates an operator using email and password, returning an authenticated s
 }
 ```
 
-#### `POST /api/register`
+#### `POST /api/auth/register` (or `/api/register`)
 Creates a new operator account and establishes a session.
 - **Request Body:**
 ```json
@@ -78,12 +91,20 @@ Creates a new operator account and establishes a session.
 ```
 - **Response `201 Created`:** User payload and session token.
 
-#### `GET /api/session`
+#### `GET /api/auth/session` (or `/api/session`)
 Returns the currently authenticated operator profile.
 - **Auth:** Required
 
-#### `POST /api/logout`
+#### `GET /api/auth/me`
+Retrieves currently authenticated operator details and roles.
+- **Auth:** Required
+
+#### `POST /api/auth/logout` (or `/api/logout`)
 Revokes the current session token in PostgreSQL and clears cookies.
+- **Auth:** Required
+
+#### `POST /api/auth/revoke-sessions`
+Revokes all active sessions across all devices for the authenticated operator.
 - **Auth:** Required
 
 ---
@@ -142,6 +163,9 @@ Creates a new spending mandate.
 #### `PUT /api/mandates/:id`
 Updates budget ceiling, thresholds, or allowed merchants for an existing mandate.
 
+#### `PATCH /api/mandates/:id/status`
+Updates mandate status (`ACTIVE`, `PAUSED`, `REVOKED`, `EXPIRED`).
+
 #### `POST /api/mandates/:id/revoke`
 Toggles the revocation status (`active` <-> `revoked`). Revoked mandates immediately fail policy evaluation.
 
@@ -169,6 +193,9 @@ Parses a natural-language procurement brief into structured specifications.
   }
 }
 ```
+
+#### `POST /api/agent/search-products` (or `/api/agent/search`)
+Searches catalog candidates matching procurement requirements.
 
 #### `POST /api/agent/evaluate-candidates`
 Scores and validates catalog candidates against specifications and policy rules.
@@ -225,6 +252,9 @@ Operator sign-off on a pending (`HITL_PENDING`) purchase request. Atomically con
 #### `POST /api/requests/:id/reject`
 Rejects a pending purchase request and immediately releases any held budget reservation.
 
+#### `POST /api/requests/:id/cancel`
+Cancels a pending purchase request and releases budget reservations back to the mandate.
+
 #### `GET /api/requests/:id/dispute-pack`
 Generates a downloadable, cryptographic proof-of-intent dispute pack containing order parameters, merchant evidence, and SHA-256 signatures.
 
@@ -244,12 +274,18 @@ Toggles the frozen state of a payment rail. Frozen rails reject all clearance re
 #### `POST /api/payment-methods/:id/limits`
 Updates auto-approve cap and aggregate spending limits.
 
+#### `POST /api/payments/webhook`
+Receiver endpoint for asynchronous PayPal payment captures and disputes (with replay protection and signature verification).
+
 ---
 
 ### 2.9 Agent Passports
 
 #### `GET /api/passports`
 Lists all issued agent cryptographic passports.
+
+#### `GET /api/passports/:id`
+Retrieves a specific agent passport by identifier.
 
 #### `POST /api/passports`
 Mints a new agent passport with a SHA-256 token hash and unique `agentIdentifier`.
@@ -294,3 +330,4 @@ Instantly activates or deactivates the emergency kill-switch. When active, all i
 
 #### `GET /api/security/verify-ledger`
 Dynamically validates the SHA-256 cryptographic chain across every audit record in PostgreSQL.
+

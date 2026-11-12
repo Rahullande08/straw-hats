@@ -7,3 +7,4 @@ router.get('/activity', activityController.getActivity.bind(activityController))
 router.get('/activity/export', activityController.exportActivity.bind(activityController));
 
 export default router;
+

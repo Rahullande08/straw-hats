@@ -60,3 +60,4 @@ export function formatCurrency(amountMinor, currency = 'INR') {
   }
   return `${major.toLocaleString()} ${curr}`;
 }
+
