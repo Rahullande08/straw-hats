@@ -1,7 +1,7 @@
 # Mandate Gateway — User-Controlled Authorization Layer for AI Shopping Agents
 
 > **Deterministic Policy Firewall, Spend Governance & PayPal Sandbox Payment Orchestration for Autonomous E-Commerce Agents**  
-> Built for the PayPal AI Hackathon • Repository: [https://github.com/shreyaskhakal/straw-hats](https://github.com/shreyaskhakal/straw-hats)
+> Built for the PayPal AI Hackathon • Repository: [https://github.com/Rahullande08/straw-hats](https://github.com/Rahullande08/straw-hats)
 
 ---
 
@@ -17,62 +17,51 @@ Autonomous AI shopping agents (powered by Claude, Gemini, GPT-4o, and Perplexity
 ### The Mandate Gateway Solution
 **Mandate Gateway** establishes a zero-trust, fail-closed policy enforcement proxy between generative shopping agents, product providers, merchant storefronts, and PayPal payment rails.
 
-**Core Invariant**: *AI models may search, compare, and recommend purchases, but generative code NEVER decides whether an order is allowed or paid.* Every purchase request is deterministically validated by a Policy Engine against user-defined spending mandates, audited, and processed via PayPal Sandbox payment intents with zero raw card exposure.
+**Core Invariant**: *AI models may search, compare, and recommend purchases, but generative code NEVER decides whether an order is allowed or paid.* Every purchase request is deterministically validated by a 22-step Policy Engine against user-defined spending mandates, audited, and processed via PayPal Sandbox payment intents with zero raw card exposure.
 
 ---
 
 ## 2. System Architecture & Workflow
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        SOVEREIGN USER DASHBOARD                        │
-│             (Single Pane of Control • Dark/Light Stitch UI)            │
-└──────────────────┬─────────────────────────────────┬───────────────────┘
-                   │                                 │
-                   ▼                                 ▼
-┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│       MANDATE GATEWAY FRONTEND       │  │     MERCHANT VERIFICATION    │
-│  (React 18 + Vite + Stitch Tokens)   │  │   (/verify/:token Public DID)│
-└──────────────────┬───────────────────┘  └──────────────┬───────────────┘
-                   │                                     │
-                   ▼                                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                   DETERMINISTIC AUTHORIZATION ENGINE                   │
-│         (Fail-Closed Invariant Checks • Human-in-the-Loop)             │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. Global Kill-Switch Check (immediate halt if engaged)                │
-│ 2. Active Mandate & Expiration Verification                            │
-│ 3. Category & Merchant Whitelist/Blacklist Matching                    │
-│ 4. Single-Item Price Ceiling & Remaining Cumulative Budget             │
-│ 5. Human-in-the-Loop Trigger (flagged if > auto-clear limit)           │
-│ 6. Output Verdict: ALLOW (Auto-Clear) | FLAG_HUMAN | BLOCK             │
-└──────────────────┬─────────────────────────────────┬───────────────────┘
-                   │                                 │
-                   ▼                                 ▼
-┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│       CHANNEL3 PRODUCT ADAPTER       │  │    PAYPAL SANDBOX SERVICE    │
-│  (Modular Provider / Demo Catalog)   │  │ (7-State Payment Orchestrator│
-└──────────────────────────────────────┘  └──────────────────────────────┘
+```mermaid
+flowchart TD
+    Agent["Autonomous Shopping Agent"] --> API["Mandate Gateway API (Express 4)"]
+    Frontend["Operator UI (React 18 + Vite)"] --> API
+    
+    subgraph GatewayCore["Mandate Gateway Core Engine"]
+        RL["Rate Limiters & Request Tracing"] --> Auth["Session & Cryptographic Auth"]
+        Auth --> PolicyEngine["22-Step Deterministic Policy Engine (Fail-Closed)"]
+        PolicyEngine --> MerchantVerify["Anti-Typosquatting & Homoglyph Filter"]
+        PolicyEngine --> BudgetTx["Atomic Budget Allocation (Row Locks)"]
+        BudgetTx --> HashLedger["SHA-256 Hash-Chained Audit Ledger"]
+    end
+    
+    API --> GatewayCore
+    GatewayCore --> HITL["Human-in-the-Loop Sovereign Review"]
+    GatewayCore --> PayPalRail["PayPal Sandbox Adapter (/v2/checkout/orders)"]
+    GatewayCore --> DB[("PostgreSQL 16 Engine / pg-mem Fallback")]
 ```
 
 ### 5-Step Mandate-to-Purchase Flow
 1. **User Sets Mandate**: Define strict constraints (e.g., "Home Office", INR 50,000 budget, max INR 5,000/item, Amazon India & Croma whitelisted, electronics only).
 2. **AI Agent Finds Products**: The agent searches via the modular product provider (Channel3 adapter) and submits purchase candidates.
-3. **Deterministic Policy Check**: The policy engine evaluates rules with zero LLM hallucinations. Compliant items under threshold auto-clear; sensitive items trigger human review.
+3. **Deterministic Policy Check**: The 22-step policy engine evaluates rules with zero LLM hallucinations. Compliant items under threshold auto-clear; sensitive items trigger human review.
 4. **Human Review (HITL)**: Purchases exceeding auto-clear thresholds require explicit sovereign confirmation before order creation.
 5. **PayPal Sandbox Settlement**: The payment service initiates and captures PayPal sandbox orders with anti-replay guarantees and zero raw financial credential leakage.
 
 ---
 
-## 3. Frontend-First Architecture & Vercel Readiness
+## 3. Persistent Backend & Full-Stack Architecture
 
-Mandate Gateway is built with a **Frontend-First delivery model**:
-- **Self-Contained Client Demo Mode**: The application includes a rich client-side mock service (`src/api/mockService.js` and `src/api/mockData.js`) that simulates the full backend gateway lifecycle, enabling seamless evaluation on Vercel with zero external server dependencies.
-- **Unified Clean Integration Boundary**: All API routes and contracts are centralized in `src/services/apiContract.js` (`API_ROUTES`, `REQUEST_LIFECYCLE_STATUS`, `POLICY_VERDICTS`, `DECISION_REASONS`).
-- **OpenAPI 3.0.3 Contract (`openapi.yaml`)**: Standardized specification covering all endpoints, parameters, request bodies, and responses for future Express backend deployment.
-- **Postman Collection v2.1.0 (`postman_collection.json`)**: Pre-configured collection with all 12 modules, realistic mock payloads, and environment variables.
-- **Vercel SPA Routing (`vercel.json`)**: Configured with single-page application URL rewrites to `/index.html` ensuring direct deep-linking on all routes.
-- **Resettable Demo State**: Evaluators and judges can click the "Reset Demo" button in the global header bar at any time to instantly restore all mandates, purchase requests, payment cards, and security states back to the original baseline seed data.
+Mandate Gateway features a production-ready, persistent **modular monolith backend** in modern Node.js (ES modules):
+
+- **Express 4 API Layer**: Clean MVC/Service/Repository separation with typed errors and RFC-7807 problem responses.
+- **Relational PostgreSQL 16 Persistence**: 14 normalized tables covering users, sessions, merchants, mandates, agent passports, purchase requests, locked evidence, approvals, payment methods, payments, security events, and audit logs.
+- **Zero Floating-Point Financial Math**: All amounts stored and computed in integer minor currency units (`cents` / `paise`).
+- **Universal Database Engine Portability**: High-performance connection pooling via `pg.Pool` when `DATABASE_URL` is set, with an automatic fallback to an embedded in-memory PostgreSQL engine (`pg-mem`) for zero-dependency local runs and CI testing.
+- **Dual Mode Operation (`VITE_APP_MODE`)**:
+  - `VITE_APP_MODE=api`: Frontend communicates with the live Express/PostgreSQL backend via `/api`.
+  - `VITE_APP_MODE=demo`: Frontend runs purely client-side with rich in-browser mock state (ideal for offline evaluations or static hosting).
 
 ---
 
@@ -85,42 +74,32 @@ Mandate Gateway is built with a **Frontend-First delivery model**:
   - Realistic merchant product catalog (Amazon India, Croma, Reliance Digital, Tata CLiQ).
   - Verifiable product specs and quote evidence digests.
   - Side-by-side candidate comparison matrix.
-  - Clean drop-in boundary: swapping demo data for the live Channel3 API requires only filling API keys in `Channel3ProductProvider`.
 
 ### B. Postman Integration (API Governance & Testing)
 - **Artifact**: [`postman_collection.json`](file:///postman_collection.json).
 - **Structure**: 12 organized folders matching the complete gateway lifecycle:
   1. Health & System (`GET /health`)
-  2. Session & Auth (`GET /session`, `POST /login`, `POST /logout`)
+  2. Session & Auth (`GET /session`, `POST /login`, `POST /logout`, `POST /register`)
   3. Dashboard State (`GET /dashboard`)
-  4. Mandates (`GET /mandates`, `POST /mandates`, `POST /mandates/:id/revoke`)
+  4. Mandates (`GET /mandates`, `POST /mandates`, `PUT /mandates/:id`, `POST /mandates/:id/revoke`)
   5. Shopping Agent (`POST /agent/parse-brief`, `POST /agent/evaluate-candidates`)
   6. Deterministic Policy (`POST /policy/evaluate`)
   7. Purchase Requests (`GET /requests`, `POST /requests`, `POST /requests/:id/approve`, `POST /requests/:id/reject`, `GET /requests/:id/dispute-pack`)
   8. Payment Rails & PayPal Sandbox (`GET /payment-methods`, `POST /payment-methods/connect`, `POST /payment-methods/:id/toggle-freeze`, `POST /payment-methods/:id/limits`)
   9. Agent Passports & Merchant Verification (`GET /passports`, `POST /passports`, `POST /passports/:id/revoke`, `GET /passports/verify/:token`)
   10. Activity & Audit Logs (`GET /activity`, `GET /activity/export`)
-  11. Security & Resilience (`GET /security/attacks`, `POST /security/run-attacks`, `POST /security/check-message`, `GET /security/kill-switch`, `POST /security/kill-switch/toggle`)
+  11. Security & Resilience (`GET /security/attacks`, `POST /security/run-attacks`, `POST /security/check-message`, `GET /security/kill-switch`, `POST /security/kill-switch/toggle`, `GET /security/verify-ledger`)
   12. Settings (`GET /settings`, `POST /settings`)
 
 ### C. APIMatic Integration (SDK & API Documentation)
 - **Artifact**: [`openapi.yaml`](file:///openapi.yaml).
-- **Readiness**: Formatted in standard OpenAPI 3.0.3, strictly compliant with APIMatic validation rules, enabling one-click generation of client SDKs (TypeScript, Python, Java, C#) and interactive API documentation portals.
-
-### D. AG Grid Evaluation & Dense Table Design Decision
-- **Evaluation**: Evaluated AG Grid for tabular data displays (Activity Log, Purchase Requests, Payment Rails).
-- **Decision**: To optimize for rapid page loads, zero commercial license dependencies, and strict aesthetic consistency with Google Stitch editorial fintech design tokens, we engineered bespoke high-density table components featuring:
-  - Multi-column sorting (timestamp, amount, status).
-  - Multi-facet filtering (type, status, date).
-  - Search across IDs, titles, merchants, and agents.
-  - Responsive pagination and formula-injection-safe CSV export.
-  - Lightweight DOM footprint with zero vendor bundle bloat.
+- **Readiness**: Formatted in standard OpenAPI 3.0.3, compliant with APIMatic validation rules, enabling one-click generation of client SDKs (TypeScript, Python, Java, C#) and interactive API documentation portals.
 
 ---
 
 ## 5. PayPal Sandbox Integration & Payment Lifecycle
 
-Mandate Gateway orchestrates payments through an explicit 7-stage lifecycle implemented in [`src/services/paymentService.js`](file:///src/services/paymentService.js):
+Mandate Gateway orchestrates payments through an explicit 7-stage lifecycle implemented in [`src/services/paymentService.js`](file:///src/services/paymentService.js) and [`server/services/paypal.service.js`](file:///server/services/paypal.service.js):
 
 | State | Description | Transition Trigger |
 | :--- | :--- | :--- |
@@ -132,7 +111,7 @@ Mandate Gateway orchestrates payments through an explicit 7-stage lifecycle impl
 | `COMPLETED` | Simulated order captured; anti-replay capture ID minted. | Transaction finalized; logged to audit. |
 | `FAILED_OR_CANCELLED` | Order failed policy checks, was rejected by human, or timed out. | Final terminal failure state. |
 
-> **Sandbox Intent Disclosure**: PayPal is the intended payment integration rail. All financial transactions displayed in the demo execute in isolated simulated sandbox mode against mock PayPal endpoints (`api-m.sandbox.paypal.com`). No live financial settlements or card charges occur.
+> **Sandbox Intent Disclosure**: PayPal is the payment integration rail. All financial transactions execute in isolated sandbox mode. No live financial settlements or card charges occur.
 
 ---
 
@@ -143,27 +122,21 @@ In the **Shopping Agent (`/agent`)** page, judges can click 6 pre-configured sce
 1. **Auto-Clear (Compliant Mouse — INR 2,499)**:
    - *Input*: Portronics Toad One Wireless Mouse on Amazon India (Whitelisted).
    - *Verdict*: **`ALLOW` (Auto-Cleared)**.
-   - *Rationale*: Price is below the INR 5,000 single-item limit and merchant is whitelisted.
 2. **Flagged for Human Review (Dell 4K Monitor — INR 42,500)**:
    - *Input*: Dell UltraSharp 27 4K Monitor on Amazon India (Whitelisted).
    - *Verdict*: **`FLAG_HUMAN` (Requires Sovereign Approval)**.
-   - *Rationale*: Price exceeds the INR 5,000 auto-clear threshold but remains within the INR 50,000 total budget.
 3. **Blocked: Over-Budget (Apple Studio Display — INR 159,900)**:
    - *Input*: Apple Studio Display Nano-Texture on Croma.
    - *Verdict*: **`BLOCK` (Budget Exceeded)**.
-   - *Rationale*: Exceeds both the single-item limit and the mandate's total remaining budget.
 4. **Blocked: Blacklisted Merchant (Rogue Cables — INR 1,200)**:
    - *Input*: High-Speed HDMI 2.1 Cable on AliExpress.
    - *Verdict*: **`BLOCK` (Merchant Untrusted)**.
-   - *Rationale*: AliExpress is blacklisted under the active mandate; zero funds allowed.
 5. **Blocked: Disallowed Category (Gold Coin — INR 8,500)**:
    - *Input*: 1g 24K Gold Coin on Amazon India.
    - *Verdict*: **`BLOCK` (Category Violation)**.
-   - *Rationale*: Jewelry and bullion are excluded; only office electronics are permitted.
 6. **Blocked: Dealbreaker Mismatch (Battery Mouse — INR 1,899)**:
    - *Input*: Disposable AA-battery mouse when user specified rechargeable USB-C.
    - *Verdict*: **`BLOCK` (Spec Compliance Failure)**.
-   - *Rationale*: Missing required user specification; fail-closed enforcement prevents purchase.
 
 ---
 
@@ -171,13 +144,13 @@ In the **Shopping Agent (`/agent`)** page, judges can click 6 pre-configured sce
 
 | Security Layer | Implementation File | Verification & Truthful Disclosure |
 | :--- | :--- | :--- |
-| **Deterministic Invariants** | [`src/services/apiContract.js`](file:///src/services/apiContract.js) | Evaluates constraints in pure code with zero probabilistic LLM drift. Defaults to `BLOCK`. |
-| **Emergency Global Kill-Switch** | [`src/pages/SecurityPage.jsx`](file:///src/pages/SecurityPage.jsx) | Toggles immediate global halt of all autonomous orders and approvals across all agents. |
-| **Anti-Replay Approvals** | [`src/pages/PurchaseRequestsPage.jsx`](file:///src/pages/PurchaseRequestsPage.jsx) | Single-use approval tokens prevent duplicate order captures. |
-| **Agent Passport Attestation** | [`src/pages/AgentPassportPage.jsx`](file:///src/pages/AgentPassportPage.jsx) | **Truthful Disclosure**: Agent Passports use simulated software SHA-256 digests and mock DID envelopes for demo purposes (not hardware Intel SGX/AWS Nitro enclaves). |
-| **Zero Raw Financial Exposure** | [`src/pages/PaymentMethodsPage.jsx`](file:///src/pages/PaymentMethodsPage.jsx) | Raw credit card numbers and CVVs are never collected or stored. Ephemeral sandbox tokens are used exclusively. |
-| **Audit Pack & Dispute Proof** | [`src/components/DisputePackModal.jsx`](file:///src/components/DisputePackModal.jsx) | Assembles product specs, user brief snapshot, and policy decisions into a dispute-ready payload. |
-| **Red-Team Attack Suite** | [`src/pages/SecurityPage.jsx`](file:///src/pages/SecurityPage.jsx) | Tests prompt injection, budget draining, and limit evasion vectors with real-time defense metrics. |
+| **Deterministic Invariants** | [`server/services/policy.service.js`](file:///server/services/policy.service.js) | Evaluates 22 constraints in compiled JavaScript. Defaults to `BLOCK`. Zero AI drift. |
+| **Emergency Global Kill-Switch** | [`server/services/killSwitch.service.js`](file:///server/services/killSwitch.service.js) | Centralized circuit breaker instantly halting all incoming purchase authorizations. |
+| **Anti-Typosquatting & Homoglyphs** | [`server/services/merchantVerification.service.js`](file:///server/services/merchantVerification.service.js) | Levenshtein distance matching, punycode `xn--` detection, and domain canonicalization. |
+| **Tamper-Evident Audit Ledger** | [`server/services/audit.service.js`](file:///server/services/audit.service.js) | Immutable SHA-256 hash chain with runtime ledger verification endpoint (`/api/security/verify-ledger`). |
+| **Formula Injection Defense** | [`server/services/audit.service.js`](file:///server/services/audit.service.js) | Sanitizes CSV export fields starting with `=`, `+`, `-`, `@`, `\t`, `\r` to protect Excel users. |
+| **Zero Raw Financial Exposure** | [`server/services/paypal.service.js`](file:///server/services/paypal.service.js) | Raw credit card numbers and CVVs are never collected or stored. Ephemeral sandbox tokens are used exclusively. |
+| **Agent Passport Attestation** | [`server/services/passport.service.js`](file:///server/services/passport.service.js) | **Truthful Disclosure**: Agent Passports use SHA-256 token digests and software DID envelopes for hackathon evaluation (not hardware Intel SGX/AWS Nitro enclaves). |
 
 ---
 
@@ -189,112 +162,100 @@ In the **Shopping Agent (`/agent`)** page, judges can click 6 pre-configured sce
 
 ### Installation
 ```bash
-git clone https://github.com/shreyaskhakal/straw-hats.git
+git clone https://github.com/Rahullande08/straw-hats.git
 cd straw-hats
 
 # Install dependencies
 npm install
 ```
-*(On Windows systems where PowerShell execution policies restrict scripts, execute via `cmd /c npm install`)*
+*(On Windows systems where PowerShell execution policies restrict scripts, execute via `cmd /c "npm install"`)*
 
-### Development Server
+### Automated Test Suites
+Execute all test suites verifying both frontend and backend functionality:
+
 ```bash
+# Run all frontend mock and bundle tests (85/85 passing)
+npm test
+
+# Run backend unit, money, crypto, and concurrency tests (28/28 passing)
+npm run test:backend
+
+# Run full HTTP integration and route verification tests (47/47 passing)
+npm run test:integration
+```
+
+### Running the System
+```bash
+# Start backend API server (port 3001)
+npm run server
+
+# Start frontend Vite dev server (port 5173) in a separate terminal
 npm run dev
 ```
+
 Open **`http://localhost:5173`** to access the interactive Mandate Gateway.
 
-### Automated Test Suite
-```bash
-npm run test
-```
-The automated verification suite (`scripts/test_frontend.mjs`) validates:
-- Production build artifacts (`dist/index.html`, vendor bundles, stylesheets, static assets).
-- Vercel configuration (`vercel.json` SPA rewrites and output directories).
-- Client mock service layer (`/health`, `/dashboard`, `/mandates`, `/agent`, `/policy/evaluate`, `/requests`, `/payment-methods`, `/passports`, `/security/attacks`).
-- Direct URL deep linking across all 14 routes.
+---
 
-### Production Build
-```bash
-npm run build
-```
-Generates the optimized production build in `dist/`.
+## 9. Comprehensive Documentation
+
+Detailed architectural and engineering documentation is available in the `docs/` folder:
+- [Backend Audit Report](file:///docs/BACKEND_AUDIT.md): Initial audit of all routes, contracts, and security gaps.
+- [Backend Architecture](file:///docs/BACKEND_ARCHITECTURE.md): Modular monolith layers, services, repositories, and data flow.
+- [Database Schema](file:///docs/DATABASE_SCHEMA.md): Complete DDL for all 14 PostgreSQL tables, indexes, and minor unit math.
+- [API Reference](file:///docs/API_REFERENCE.md): Full endpoint reference with request/response schemas and authentication.
+- [Security Model](file:///docs/SECURITY_MODEL.md): Threat vectors, deterministic invariants, and red-team defenses.
+- [Deployment Guide](file:///docs/DEPLOYMENT.md): Production deployment on Docker, Railway, Render, and Fly.io.
 
 ---
 
-## 9. Vercel Deployment Instructions
-
-1. **Connect GitHub Repository**: Import `https://github.com/shreyaskhakal/straw-hats` in the Vercel dashboard.
-2. **Build Configuration**:
-   - **Framework Preset**: Vite
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
-3. **Environment Variables**:
-   - `VITE_APP_MODE=demo` (enables frontend demo mode)
-   - `VITE_PAYPAL_SANDBOX_CLIENT_ID=mock_client_id_sandbox`
-4. **Deploy**: Click Deploy. Vercel automatically respects [`vercel.json`](file:///vercel.json) rewrites, routing all subpaths to `/index.html` for client-side navigation.
-
----
-
-## 10. Design Aesthetics & Dark/Light Mode
-
-Mandate Gateway implements an editorial fintech aesthetic inspired by Google Stitch:
-- **Design Tokens**: Defined in [`src/index.css`](file:///src/index.css) using HSL variables for both light and dark mode.
-- **Light Mode ("Light Sovereign")**: Warm off-white canvas (`#F5F5F3`), crisp elevated cards (`#FFFFFF`), high-contrast obsidian typography (`#242424`), and subtle beige borders (`#E7E7E3`).
-- **Dark Mode ("Obsidian Dark")**: Deep obsidian canvas (`#141414`), graphite cards (`#1D1D1D`), soft off-white text (`#F5F5F5`), and dark slate borders (`#353535`).
-- **Theme Toggle**: Accessible in the header bar and dynamically configurable in [`src/pages/SettingsPage.jsx`](file:///src/pages/SettingsPage.jsx) with instant persistence to `localStorage`.
-
----
-
-## 11. Repository Structure
+## 10. Repository Structure
 
 ```
 straw-hats/
 ├── openapi.yaml                 # OpenAPI 3.0.3 specification for APIMatic & backend
 ├── postman_collection.json      # Postman Collection v2.1.0 with 12 modules
+├── docker-compose.yml           # Local PostgreSQL 16 & API container orchestrator
+├── Dockerfile                   # Multi-stage production container image
 ├── vercel.json                  # Vercel deployment & SPA rewrite routing
 ├── vite.config.js               # Vite 5 bundler configuration
-├── tailwind.config.js           # Tailwind CSS configuration with Stitch tokens
-├── index.html                   # HTML5 entrypoint with Google Fonts & metadata
+├── docs/                        # Comprehensive architectural documentation
+│   ├── BACKEND_AUDIT.md
+│   ├── BACKEND_ARCHITECTURE.md
+│   ├── DATABASE_SCHEMA.md
+│   ├── API_REFERENCE.md
+│   ├── SECURITY_MODEL.md
+│   └── DEPLOYMENT.md
 ├── scripts/
-│   └── test_frontend.mjs        # Automated verification suite (build, routes, mocks)
+│   ├── test_frontend.mjs        # Frontend mock & route verification
+│   ├── test_integration.mjs     # 33-step full-lifecycle backend integration tests
+│   └── test_routes.mjs          # Route contract verification tests
+├── server/
+│   ├── index.js                 # Server process entrypoint & graceful shutdown
+│   ├── app.js                   # Express application assembly & SPA fallback
+│   ├── config/                  # Environment, CORS, and PostgreSQL configuration
+│   ├── controllers/             # HTTP boundary controllers
+│   ├── database/                # SQL migrations & seed data scripts
+│   ├── middleware/              # Auth, validation, rate limiting, error handling
+│   ├── repositories/            # Data access objects with parameterized SQL
+│   ├── routes/                  # Express route definitions
+│   ├── services/                # Policy engine, approvals, PayPal, passports, audit
+│   ├── tests/                   # Policy engine, money, crypto, and concurrency tests
+│   └── utils/                   # Crypto, money math, errors, structured logger
 └── src/
     ├── main.jsx                 # React root mounting with ThemeProvider
     ├── App.jsx                  # React Router configuration & route declarations
-    ├── index.css                # Sovereign light & dark theme design tokens
-    ├── api/
-    │   ├── mockData.js          # Seed dataset covering all 7 lifecycle statuses
-    │   └── mockService.js       # Client mock dispatcher simulating gateway backend
-    ├── context/
-    │   └── ThemeContext.jsx     # Theme context provider (light / dark mode)
-    ├── services/
-    │   ├── apiContract.js       # Centralized route constants & status enums
-    │   ├── paymentService.js    # PayPal Sandbox 7-stage payment service
-    │   └── productProvider.js   # Channel3 modular product search adapter
-    ├── components/
-    │   ├── Header.jsx           # Global header with theme toggle & live status
-    │   ├── Sidebar.jsx          # Sovereign navigation sidebar
-    │   ├── ConfirmationModal.jsx# Sovereign approval/rejection modal
-    │   └── DisputePackModal.jsx # Proof-of-Intent audit pack generator
-    └── pages/
-        ├── LandingPage.jsx      # High-conversion product overview & flow diagram
-        ├── DashboardPage.jsx    # Real-time metrics, active mandates & approvals
-        ├── MandatesPage.jsx     # 4-step interactive spending mandate wizard
-        ├── ShoppingAgentPage.jsx# Channel3 product search & 6 judge scenario tests
-        ├── PurchaseRequestsPage.jsx # 7-status request queue with action modal
-        ├── PaymentMethodsPage.jsx # PayPal Sandbox rails & limit management
-        ├── AgentPassportPage.jsx# Agent credential ledger & verification links
-        ├── ActivityPage.jsx     # Searchable, filterable audit log with CSV export
-        ├── SecurityPage.jsx     # Kill-switch, attack suite & scam detection
-        ├── SettingsPage.jsx     # Theme, currency & notification preferences
-        └── MerchantVerifyPage.jsx # Public merchant token attestation portal
+    ├── api/                     # Dual-mode API client & mock services
+    ├── components/              # Stitch UI fintech components & modals
+    ├── pages/                   # 12 application pages (Dashboard, Mandates, etc.)
+    └── services/                # API contract definitions & payment services
 ```
 
 ---
 
-## 12. License & Disclaimers
+## 11. License & Disclaimers
 
 - **License**: MIT License.
 - **PayPal Hackathon Project**: Built for the PayPal AI Hackathon.
-- **Payment Settlement**: PayPal is the intended payment integration. All transactions in this frontend release are executed in simulated sandbox mode. No live funds are moved.
+- **Payment Settlement**: PayPal is the intended payment integration. All transactions execute in simulated sandbox mode. No live funds are moved.
 - **Attestation Model**: Hardware enclave (SGX/Nitro) and blockchain anchoring are represented via software SHA-256 digests and simulated DID tokens for hackathon evaluation.

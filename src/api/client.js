@@ -22,6 +22,7 @@ async function request(endpoint, options = {}) {
   }
 
   const config = {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,

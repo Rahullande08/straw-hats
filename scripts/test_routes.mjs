@@ -20,11 +20,23 @@ const routes = [
 
 async function checkRoutes() {
   let port = process.env.TEST_PORT ? Number(process.env.TEST_PORT) : 5173;
+  let localServer = null;
+
   try {
     const probe = await fetch(`http://localhost:${port}/`);
-    if (!probe.ok) port = 3001;
+    if (!probe.ok) throw new Error();
   } catch {
-    port = 3001;
+    try {
+      port = 3001;
+      const probe2 = await fetch(`http://localhost:${port}/api/health`);
+      if (!probe2.ok) throw new Error();
+    } catch {
+      console.log('[INFO] Server not listening on 5173 or 3001. Starting backend instance for route verification...');
+      const { startServer } = await import('../server/index.js');
+      const started = await startServer();
+      localServer = started.server;
+      port = 3001;
+    }
   }
 
   console.log(`Testing frontend direct URL resolution & client routing fallbacks on port ${port}...\n`);
@@ -47,8 +59,14 @@ async function checkRoutes() {
   }
 
   console.log(`\nRoute Verification Complete: ${passCount} / ${routes.length} routes resolved.`);
+  if (localServer) {
+    localServer.close();
+  }
+
   if (passCount !== routes.length) {
     process.exit(1);
+  } else {
+    process.exit(0);
   }
 }
 

@@ -101,6 +101,34 @@ paths:
                   success: { type: boolean, example: true }
                   user: { $ref: '#/components/schemas/SessionUser' }
 
+  /register:
+    post:
+      tags: [Session & Auth]
+      summary: Register a new operator account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                name: { type: string, example: "Elena Vance" }
+                email: { type: string, format: email, example: "elena@vance.io" }
+                password: { type: string, format: password, example: "SecurePass123!" }
+                role: { type: string, default: "operator" }
+      responses:
+        '201':
+          description: Operator account registered and session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  user: { $ref: '#/components/schemas/SessionUser' }
+
   /logout:
     post:
       tags: [Session & Auth]
@@ -171,6 +199,57 @@ paths:
       responses:
         '201':
           description: Mandate created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  mandate: { $ref: '#/components/schemas/Mandate' }
+
+  /mandates/{id}:
+    get:
+      tags: [Mandates]
+      summary: Retrieve specific mandate details
+      operationId: getMandateById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, example: "M-902" }
+      responses:
+        '200':
+          description: Mandate details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  mandate: { $ref: '#/components/schemas/Mandate' }
+    put:
+      tags: [Mandates]
+      summary: Update spending mandate rules and budget ceilings
+      operationId: updateMandate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, example: "M-902" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                budgetCeiling: { type: number }
+                singlePurchaseLimit: { type: number }
+                plainTextRule: { type: string }
+      responses:
+        '200':
+          description: Mandate updated successfully
           content:
             application/json:
               schema:
@@ -347,6 +426,29 @@ paths:
                 properties:
                   success: { type: boolean, example: true }
                   request: { $ref: '#/components/schemas/PurchaseRequest' }
+
+  /requests/{id}:
+    get:
+      tags: [Purchase Requests]
+      summary: Retrieve specific purchase request and evidence
+      operationId: getRequestById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Purchase request details with verification evidence
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  request: { $ref: '#/components/schemas/PurchaseRequest' }
+        '404':
+          description: Purchase request not found
 
   /requests/{id}/approve:
     post:
@@ -714,6 +816,27 @@ paths:
       responses:
         '200':
           description: Kill switch state toggled
+
+  /security/verify-ledger:
+    get:
+      tags: [Security & Resilience]
+      summary: Cryptographically verify the SHA-256 hash chain of the audit ledger
+      operationId: verifyLedger
+      responses:
+        '200':
+          description: Audit ledger verification report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  valid: { type: boolean, example: true }
+                  count: { type: integer, example: 50 }
+                  verifiedAt: { type: string, format: date-time }
+                  errors:
+                    type: array
+                    items: { type: string }
 
   /settings:
     get:

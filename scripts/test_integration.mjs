@@ -20,6 +20,17 @@ async function test(name, fn) {
 async function runAll() {
   console.log('--- Starting Mandate Gateway End-to-End Integration Suite ---\n');
 
+  let localServer = null;
+  try {
+    const probe = await fetch(`${BACKEND_URL}/api/health`);
+    if (!probe.ok) throw new Error();
+  } catch {
+    console.log('[INFO] Backend not running on port 3001. Starting backend instance for integration tests...');
+    const { startServer } = await import('../server/index.js');
+    const started = await startServer();
+    localServer = started.server;
+  }
+
   // 1. Frontend Shell Delivery (Dev Server or Production Build on Backend)
   await test('Frontend HTML Shell Delivery', async () => {
     let res;
@@ -517,8 +528,14 @@ async function runAll() {
   console.log(`TOTAL: ${results.length} | PASSED: ${passed} | FAILED: ${failed}`);
   console.log('=============================================\n');
 
+  if (localServer) {
+    localServer.close();
+  }
+
   if (failed > 0) {
     process.exit(1);
+  } else {
+    process.exit(0);
   }
 }
 

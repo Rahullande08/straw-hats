@@ -11,11 +11,17 @@
     "start": "node server/index.js",
     "test": "node scripts/test_frontend.mjs",
     "test:frontend": "node scripts/test_frontend.mjs",
-    "test:integration": "node scripts/test_integration.mjs && node scripts/test_routes.mjs"
+    "test:backend": "node server/tests/run_all.js",
+    "test:integration": "node scripts/test_integration.mjs && node scripts/test_routes.mjs",
+    "test:all": "node scripts/test_frontend.mjs && node server/tests/run_all.js && node scripts/test_integration.mjs && node scripts/test_routes.mjs"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.10",
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
+    "pg": "^8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2"
@@ -27,6 +33,7 @@
     "autoprefixer": "^10.4.20",
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "pg-mem": "^3.0.14",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "vite": "^5.4.8"
