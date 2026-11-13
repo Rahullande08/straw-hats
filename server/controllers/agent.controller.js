@@ -1,10 +1,10 @@
 import { procurementService } from '../services/procurement.service.js';
 
 export class AgentController {
-  parseBrief(req, res, next) {
+  async parseBrief(req, res, next) {
     try {
       const { prompt } = req.body || {};
-      const result = procurementService.parseBrief(prompt);
+      const result = await procurementService.parseBrief(prompt);
       res.json({
         success: true,
         data: result,

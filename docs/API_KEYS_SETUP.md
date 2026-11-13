@@ -119,3 +119,4 @@ Mandate Gateway implements a decoupled product discovery interface in `src/servi
   Frontend communicates directly with the live Express backend via `/api` (proxied by Vite or absolute URL via `VITE_API_BASE_URL`).
 - **`VITE_APP_MODE=demo`:**
   Frontend executes completely inside the browser using client-side mock storage (`src/api/mockService.js`). Ideal for static hosting (e.g., pure Vercel preview without backend).
+

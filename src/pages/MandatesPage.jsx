@@ -55,13 +55,19 @@ export default function MandatesPage() {
     }
   };
 
-  const handleRevoke = async (id) => {
+  const handleRevoke = async (id, currentStatus) => {
     try {
-      await api.revokeMandate(id);
-      showToast('Mandate status updated on gateway.');
+      if (currentStatus === 'REVOKED') {
+        await api.updateMandateStatus(id, 'ACTIVE');
+        showToast('Mandate resumed and activated on gateway.');
+      } else {
+        await api.revokeMandate(id);
+        showToast('Mandate revoked on gateway.');
+      }
       loadMandates();
     } catch (err) {
       console.error(err);
+      showToast(err.message || 'Failed to update mandate status');
     }
   };
 
@@ -364,7 +370,7 @@ export default function MandatesPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleRevoke(m.id)}
+                          onClick={() => handleRevoke(m.id, m.status)}
                           className={`text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 rounded transition-colors cursor-pointer ${
                             isRevoked
                               ? 'text-emerald-700 hover:text-emerald-900 border border-emerald-300 bg-emerald-50'

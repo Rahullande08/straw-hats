@@ -20,7 +20,7 @@ export default function PurchaseRequestsPage() {
   // Consequential action confirmation modal state
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
-    type: 'approve', // 'approve' | 'reject'
+    type: 'approve', // 'approve' | 'reject' | 'cancel'
     item: null,
     reason: 'Exceeds revised project requirement or alternative selected'
   });
@@ -51,6 +51,11 @@ export default function PurchaseRequestsPage() {
       badgeType = 'Declined';
       badgeBg = 'bg-neutral-100 text-neutral-700 border border-neutral-300';
       dotColor = 'bg-neutral-500';
+    } else if (rawStatus === 'CANCELLED') {
+      normalizedStatus = 'cancelled';
+      badgeType = 'Cancelled';
+      badgeBg = 'bg-slate-100 text-slate-700 border border-slate-300';
+      dotColor = 'bg-slate-400';
     } else if (rawStatus === 'BLOCKED') {
       normalizedStatus = 'blocked';
       badgeType = 'Blocked';
@@ -147,6 +152,15 @@ export default function PurchaseRequestsPage() {
     });
   };
 
+  const openCancelConfirm = (item) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'cancel',
+      item,
+      reason: 'Order cancelled by user: budget reservation released'
+    });
+  };
+
   const handleExecuteApproval = async () => {
     const item = confirmModal.item;
     if (!item) return;
@@ -176,6 +190,23 @@ export default function PurchaseRequestsPage() {
     try {
       await api.rejectRequest(item.id);
       showToast('Order Declined', `Sub-agent clearance rejected: "${confirmModal.reason || 'Manual human veto'}"`);
+      await loadLiveRequests();
+    } catch (err) {
+      showToast('Action Failed', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleExecuteCancel = async () => {
+    const item = confirmModal.item;
+    if (!item) return;
+
+    setActionLoading(true);
+    setConfirmModal({ isOpen: false, type: 'cancel', item: null, reason: '' });
+    try {
+      await api.cancelRequest(item.id, confirmModal.reason || 'User cancelled order');
+      showToast('Order Cancelled', `Request #${item.code} has been cancelled and budget reservation released.`);
       await loadLiveRequests();
     } catch (err) {
       showToast('Action Failed', err.message);
@@ -241,19 +272,27 @@ export default function PurchaseRequestsPage() {
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                 confirmModal.type === 'approve'
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : confirmModal.type === 'cancel'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                   : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
               }`}>
                 <span className="material-symbols-outlined text-[20px]">
-                  {confirmModal.type === 'approve' ? 'verified_user' : 'cancel'}
+                  {confirmModal.type === 'approve' ? 'verified_user' : confirmModal.type === 'cancel' ? 'undo' : 'cancel'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-headline-sm text-base font-semibold text-charcoal dark:text-white">
-                  {confirmModal.type === 'approve' ? 'Confirm Human Authorization' : 'Confirm Order Rejection'}
+                  {confirmModal.type === 'approve'
+                    ? 'Confirm Human Authorization'
+                    : confirmModal.type === 'cancel'
+                    ? 'Confirm Order Cancellation'
+                    : 'Confirm Order Rejection'}
                 </h3>
                 <p className="text-xs text-[#5A5D5E] dark:text-[#B8B8B8] mt-1 leading-relaxed">
                   {confirmModal.type === 'approve'
                     ? 'You are granting a one-touch authorization clearance for this autonomous agent purchase.'
+                    : confirmModal.type === 'cancel'
+                    ? 'You are cancelling this pending request. Any active budget reservation will be immediately released back to the mandate pool.'
                     : 'You are declining authorization for this autonomous agent purchase.'}
                 </p>
 
@@ -285,26 +324,28 @@ export default function PurchaseRequestsPage() {
                 <div className="mt-3 p-3 rounded bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 text-[11px] text-amber-900 dark:text-amber-300">
                   <div className="flex items-center gap-1.5 font-semibold">
                     <span className="material-symbols-outlined text-[14px]">info</span>
-                    <span>Sandbox Payment Notice</span>
+                    <span>{confirmModal.type === 'approve' ? 'Sandbox Payment Notice' : confirmModal.type === 'cancel' ? 'Budget Release Notice' : 'Policy Rejection Notice'}</span>
                   </div>
                   <p className="mt-1 leading-relaxed">
                     {confirmModal.type === 'approve'
                       ? 'Approving generates a simulated PayPal Sandbox authorization token (mock single-use grant). No live funds or cards are settled.'
+                      : confirmModal.type === 'cancel'
+                      ? 'Cancelling marks the request as CANCELLED and unlocks reserved budget funds for subsequent shopping tasks.'
                       : 'Declining updates the request status to REJECTED and notifies the shopping agent.'}
                   </p>
                 </div>
 
-                {/* Reason Input for Rejection */}
-                {confirmModal.type === 'reject' && (
+                {/* Reason Input for Rejection or Cancellation */}
+                {(confirmModal.type === 'reject' || confirmModal.type === 'cancel') && (
                   <div className="mt-3">
                     <label className="block text-[11px] font-mono uppercase text-[#888B8C] mb-1">
-                      Reason for Rejection
+                      {confirmModal.type === 'cancel' ? 'Cancellation Reason' : 'Reason for Rejection'}
                     </label>
                     <input
                       type="text"
                       value={confirmModal.reason}
                       onChange={(e) => setConfirmModal({ ...confirmModal, reason: e.target.value })}
-                      placeholder="Specify reason for sub-agent..."
+                      placeholder="Specify reason for audit trail..."
                       className="w-full text-xs px-3 py-2 rounded border border-[#E7E7E3] dark:border-[#353535] bg-white dark:bg-[#141414] text-charcoal dark:text-white outline-none focus:ring-1 focus:ring-charcoal"
                     />
                   </div>
@@ -319,26 +360,36 @@ export default function PurchaseRequestsPage() {
                 onClick={() => setConfirmModal({ isOpen: false, type: 'approve', item: null, reason: '' })}
                 className="px-4 py-2 text-xs font-medium rounded-md border border-[#E7E7E3] dark:border-[#353535] text-charcoal dark:text-gray-300 hover:bg-[#FAF9F5] dark:hover:bg-[#252525] transition-colors cursor-pointer"
               >
-                Cancel
+                Close
               </button>
               <button
                 type="button"
-                onClick={confirmModal.type === 'approve' ? handleExecuteApproval : handleExecuteRejection}
+                onClick={
+                  confirmModal.type === 'approve'
+                    ? handleExecuteApproval
+                    : confirmModal.type === 'cancel'
+                    ? handleExecuteCancel
+                    : handleExecuteRejection
+                }
                 disabled={actionLoading}
                 className={`px-4 py-2 text-xs font-semibold rounded-md text-white transition-colors cursor-pointer flex items-center gap-1.5 ${
                   confirmModal.type === 'approve'
                     ? 'bg-charcoal hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200'
+                    : confirmModal.type === 'cancel'
+                    ? 'bg-amber-600 hover:bg-amber-700'
                     : 'bg-error hover:bg-red-700'
                 }`}
               >
                 <span className="material-symbols-outlined text-[15px]">
-                  {confirmModal.type === 'approve' ? 'key' : 'close'}
+                  {confirmModal.type === 'approve' ? 'key' : confirmModal.type === 'cancel' ? 'undo' : 'close'}
                 </span>
                 <span>
                   {actionLoading
                     ? 'Processing...'
                     : confirmModal.type === 'approve'
                     ? 'Confirm & Authorize'
+                    : confirmModal.type === 'cancel'
+                    ? 'Confirm Cancellation'
                     : 'Confirm Rejection'}
                 </span>
               </button>
@@ -764,7 +815,15 @@ export default function PurchaseRequestsPage() {
                     {/* Actions based on Status */}
                     {selectedItem.status === 'pending' && (
                       <div className="pt-6 flex flex-col gap-2">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openCancelConfirm(selectedItem)}
+                            disabled={actionLoading}
+                            className="py-2.5 px-3 rounded-md border border-[#E7E7E3] dark:border-[#353535] bg-white dark:bg-[#252525] text-[#5A5D5E] dark:text-[#B8B8B8] hover:bg-[#F7F7F4] dark:hover:bg-[#2A2A2A] text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
                           <button
                             type="button"
                             onClick={() => openRejectConfirm(selectedItem)}
@@ -777,7 +836,7 @@ export default function PurchaseRequestsPage() {
                             type="button"
                             onClick={() => openApproveConfirm(selectedItem)}
                             disabled={actionLoading}
-                            className="flex-2 flex-grow py-2.5 px-5 rounded-md bg-charcoal dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-neutral-200 text-xs font-semibold tracking-wide flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                            className="flex-2 flex-grow py-2.5 px-4 rounded-md bg-charcoal dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-neutral-200 text-xs font-semibold tracking-wide flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[16px]">key</span>
                             <span>{actionLoading ? 'Releasing...' : 'Approve & Release Funds'}</span>
@@ -828,6 +887,17 @@ export default function PurchaseRequestsPage() {
                             Status
                           </span>
                           <span>This request was declined by the human account owner. The shopping agent cannot execute this order.</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedItem.status === 'cancelled' && (
+                      <div className="pt-6">
+                        <div className="p-3 bg-slate-50 dark:bg-[#252525] rounded text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#353535]">
+                          <span className="font-semibold block font-mono text-[10px] uppercase text-[#888B8C] mb-1">
+                            Status: Order Cancelled
+                          </span>
+                          <span>This request was cancelled prior to execution. Any reserved mandate funds have been released back to the mandate balance.</span>
                         </div>
                       </div>
                     )}

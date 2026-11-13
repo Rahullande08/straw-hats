@@ -32,3 +32,4 @@ export const webhookRepository = {
     return res.rows[0];
   }
 };
+

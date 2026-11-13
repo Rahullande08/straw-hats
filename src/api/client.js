@@ -1,8 +1,9 @@
 import { dispatchMockRequest } from './mockService.js';
 
-const RAW_BASE = import.meta.env.VITE_API_BASE_URL;
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' && process.env ? process.env : {});
+const RAW_BASE = env.VITE_API_BASE_URL;
 const BASE_URL = RAW_BASE ? RAW_BASE.replace(/\/+$/, '') : '/api';
-const FORCE_DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+const FORCE_DEMO = env.VITE_DEMO_MODE === 'true';
 
 let isDemoSandboxActive = FORCE_DEMO;
 
@@ -84,24 +85,40 @@ async function request(endpoint, options = {}) {
 export const api = {
   // System Health & Demo State
   getHealth: () => request('/health'),
+  getReady: () => request('/ready'),
   resetDemoState: () => request('/demo/reset', { method: 'POST' }),
 
-  // Session
+  // Session & Auth
   getSession: () => request('/session'),
-  login: (passphrase, rememberTerminal) => request('/login', {
+  getMe: () => request('/auth/me'),
+  login: (passphrase, rememberTerminal, email) => request('/login', {
     method: 'POST',
-    body: JSON.stringify({ passphrase, rememberTerminal }),
+    body: JSON.stringify({ passphrase, rememberTerminal, email }),
+  }),
+  register: (userData) => request('/register', {
+    method: 'POST',
+    body: JSON.stringify(userData),
   }),
   logout: () => request('/logout', { method: 'POST' }),
+  revokeSessions: () => request('/auth/revoke-sessions', { method: 'POST' }),
 
   // Dashboard
   getDashboard: () => request('/dashboard'),
 
   // Mandates
   getMandates: () => request('/mandates'),
+  getMandateById: (id) => request(`/mandates/${id}`),
   createMandate: (data) => request('/mandates', {
     method: 'POST',
     body: JSON.stringify(data),
+  }),
+  updateMandate: (id, data) => request(`/mandates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  updateMandateStatus: (id, status) => request(`/mandates/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   }),
   revokeMandate: (id) => request(`/mandates/${id}/revoke`, { method: 'POST' }),
 
@@ -114,6 +131,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ brief }),
   }),
+  searchProducts: (prompt) => request('/agent/search-products', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  }),
 
   // Deterministic Policy Evaluation
   evaluatePolicy: (data) => request('/policy/evaluate', {
@@ -123,16 +144,26 @@ export const api = {
 
   // Requests
   getRequests: () => request('/requests'),
+  getRequestById: (id) => request(`/requests/${id}`),
   createRequest: (data) => request('/requests', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
   approveRequest: (id) => request(`/requests/${id}/approve`, { method: 'POST' }),
-  rejectRequest: (id) => request(`/requests/${id}/reject`, { method: 'POST' }),
+  rejectRequest: (id, reason) => request(`/requests/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  }),
+  cancelRequest: (id, reason) => request(`/requests/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  }),
   getDisputePack: (id) => request(`/requests/${id}/dispute-pack`),
 
-  // Payment Methods
+  // Payment Methods & Rails
   getPaymentMethods: () => request('/payment-methods'),
+  getPaymentOrders: () => request('/payments/orders'),
+  getPaymentById: (id) => request(`/payments/${id}`),
   toggleFreezePaymentMethod: (id) => request(`/payment-methods/${id}/toggle-freeze`, { method: 'POST' }),
   connectPaymentRail: (data) => request('/payment-methods/connect', {
     method: 'POST',
@@ -145,6 +176,7 @@ export const api = {
 
   // Passports
   getPassports: () => request('/passports'),
+  getPassportById: (id) => request(`/passports/${id}`),
   createPassport: (data) => request('/passports', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -167,6 +199,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ reason }),
   }),
+  verifyLedger: () => request('/security/verify-ledger'),
+
+  // Merchants
+  getMerchants: () => request('/merchants'),
 
   // Settings
   getSettings: () => request('/settings'),

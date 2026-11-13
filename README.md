@@ -56,9 +56,10 @@ flowchart TD
 Mandate Gateway features a production-ready, persistent **modular monolith backend** in modern Node.js (ES modules):
 
 - **Express 4 API Layer**: Clean MVC/Service/Repository separation with typed errors and RFC-7807 problem responses.
-- **Relational PostgreSQL 16 Persistence**: 14 normalized tables covering users, sessions, merchants, mandates, agent passports, purchase requests, locked evidence, approvals, payment methods, payments, security events, and audit logs.
+- **Relational PostgreSQL 16 Persistence**: 16 normalized tables covering users, sessions, merchants, mandates, agent passports, purchase requests, locked evidence, approvals, payment methods, payments, security events, audit logs, idempotency keys, and webhook events.
 - **Zero Floating-Point Financial Math**: All amounts stored and computed in integer minor currency units (`cents` / `paise`).
 - **Universal Database Engine Portability**: High-performance connection pooling via `pg.Pool` when `DATABASE_URL` is set, with an automatic fallback to an embedded in-memory PostgreSQL engine (`pg-mem`) for zero-dependency local runs and CI testing.
+- **Deterministic 25-Step Policy Sequence**: Strict fail-closed validation pipeline checking budget, single-order caps, velocity, anti-typosquatting, prohibited categories, and emergency kill switches.
 - **Dual Mode Operation (`VITE_APP_MODE`)**:
   - `VITE_APP_MODE=api`: Frontend communicates with the live Express/PostgreSQL backend via `/api`.
   - `VITE_APP_MODE=demo`: Frontend runs purely client-side with rich in-browser mock state (ideal for offline evaluations or static hosting).
@@ -174,23 +175,27 @@ npm install
 Execute all test suites verifying both frontend and backend functionality:
 
 ```bash
-# Run all frontend mock and bundle tests (85/85 passing)
+# Run all frontend mock, bundle, and 6-scenario tests (85/85 passing)
 npm test
 
-# Run backend unit, money, crypto, and concurrency tests (28/28 passing)
+# Run backend unit, money math, crypto, and concurrency tests (28/28 passing)
 npm run test:backend
 
-# Run full HTTP integration and route verification tests (47/47 passing)
+# Run full HTTP integration and route verification tests (54/54 passing)
 npm run test:integration
+
+# Build production bundle
+npm run build
 ```
 
 ### Running the System
 ```bash
-# Start backend API server (port 3001)
-npm run server
+# Option A: Full-Stack Dev Runner (Starts both Backend on :5000 and Frontend on :5173)
+npm run dev:fullstack
 
-# Start frontend Vite dev server (port 5173) in a separate terminal
-npm run dev
+# Option B: Run Services Independently
+npm run dev:backend     # Backend Express API server (port 5000)
+npm run dev:frontend    # Frontend Vite dev server (port 5173)
 ```
 
 Open **`http://localhost:5173`** to access the interactive Mandate Gateway.
@@ -200,10 +205,14 @@ Open **`http://localhost:5173`** to access the interactive Mandate Gateway.
 ## 9. Comprehensive Documentation
 
 Detailed architectural and engineering documentation is available in the `docs/` folder:
-- [Backend Audit Report](file:///docs/BACKEND_AUDIT.md): Initial audit of all routes, contracts, and security gaps.
+- [Testing & Verification Guide](file:///docs/TESTING.md): Multi-tiered test matrix, invariants, and continuous integration.
+- [Project Audit Report](file:///docs/PROJECT_AUDIT.md): Comprehensive baseline audit of frontend, backend, security, and database.
+- [Backend Audit Report](file:///docs/BACKEND_AUDIT.md): Deep-dive audit of all routes, contracts, and security gaps.
+- [Implementation Tracker](file:///docs/IMPLEMENTATION_TRACKER.md): Phase-by-phase implementation checklist.
 - [Backend Architecture](file:///docs/BACKEND_ARCHITECTURE.md): Modular monolith layers, services, repositories, and data flow.
-- [Database Schema](file:///docs/DATABASE_SCHEMA.md): Complete DDL for all 14 PostgreSQL tables, indexes, and minor unit math.
+- [Database Schema](file:///docs/DATABASE_SCHEMA.md): Complete DDL for all 16 PostgreSQL tables, indexes, and minor unit math.
 - [API Reference](file:///docs/API_REFERENCE.md): Full endpoint reference with request/response schemas and authentication.
+- [API Keys & Credentials Setup](file:///docs/API_KEYS_SETUP.md): Step-by-step credentials configuration for PayPal Sandbox, OpenAI, and Postgres.
 - [Security Model](file:///docs/SECURITY_MODEL.md): Threat vectors, deterministic invariants, and red-team defenses.
 - [Deployment Guide](file:///docs/DEPLOYMENT.md): Production deployment on Docker, Railway, Render, and Fly.io.
 

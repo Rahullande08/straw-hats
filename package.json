@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "node server/index.js",
+    "dev:frontend": "vite",
+    "dev:fullstack": "node scripts/dev_fullstack.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
@@ -13,6 +16,7 @@
     "test:frontend": "node scripts/test_frontend.mjs",
     "test:backend": "node server/tests/run_all.js",
     "test:integration": "node scripts/test_integration.mjs && node scripts/test_routes.mjs",
+    "test:e2e": "node scripts/test_integration.mjs",
     "test:all": "node scripts/test_frontend.mjs && node server/tests/run_all.js && node scripts/test_integration.mjs && node scripts/test_routes.mjs"
   },
   "dependencies": {

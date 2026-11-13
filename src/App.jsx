@@ -1,6 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ApiStatusProvider } from './context/ApiStatusContext';
+import { AuthProvider } from './context/AuthContext';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -19,22 +21,26 @@ import NotFoundPage from './pages/NotFoundPage';
 export default function App() {
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/mandates" element={<MandatesPage />} />
-        <Route path="/agent" element={<ShoppingAgentPage />} />
-        <Route path="/requests" element={<PurchaseRequestsPage />} />
-        <Route path="/payment-methods" element={<PaymentMethodsPage />} />
-        <Route path="/passport" element={<AgentPassportPage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/security" element={<SecurityPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/verify/:token" element={<MerchantVerifyPage />} />
-        <Route path="/verify" element={<MerchantVerifyPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      <ApiStatusProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/mandates" element={<MandatesPage />} />
+            <Route path="/agent" element={<ShoppingAgentPage />} />
+            <Route path="/requests" element={<PurchaseRequestsPage />} />
+            <Route path="/payment-methods" element={<PaymentMethodsPage />} />
+            <Route path="/passport" element={<AgentPassportPage />} />
+            <Route path="/activity" element={<ActivityPage />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/verify/:token" element={<MerchantVerifyPage />} />
+            <Route path="/verify" element={<MerchantVerifyPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </AuthProvider>
+      </ApiStatusProvider>
     </ErrorBoundary>
   );
 }

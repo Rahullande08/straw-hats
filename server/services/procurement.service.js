@@ -1,4 +1,5 @@
 import { BadRequestError } from '../utils/errors.js';
+import { openAIService } from '../integrations/openai/openai.service.js';
 
 /**
  * AI Provider Interface & Deterministic Procurement Evaluator
@@ -7,9 +8,15 @@ export class ProcurementService {
   /**
    * Parse natural language procurement prompt into structured requirements
    */
-  parseBrief(prompt) {
+  async parseBrief(prompt) {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       throw new BadRequestError('Prompt text is required for AI brief parsing');
+    }
+
+    // If optional OpenAI provider is configured and available
+    const openAIResult = await openAIService.parseBriefWithOpenAI(prompt);
+    if (openAIResult) {
+      return openAIResult;
     }
 
     const lower = prompt.toLowerCase();

@@ -117,6 +117,18 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoading(true);
+                  loadDashboardData();
+                }}
+                className="btn-secondary cursor-pointer"
+                title="Refresh dashboard data from gateway"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>sync</span>
+                <span>Refresh</span>
+              </button>
               <Link to="/mandates" className="btn-secondary">
                 <span className="material-symbols-outlined text-[16px]">tune</span>
                 <span>Policy Rules</span>

@@ -14,6 +14,8 @@
  *    Human Approval (if required) -> PayPal Sandbox Order -> Verified Result -> Audit Event.
  */
 
+import { apiClient } from './apiClient.js';
+
 export const PAYMENT_LIFECYCLE_STATES = {
   NOT_CONFIGURED: 'NOT_CONFIGURED',
   SANDBOX_CONFIGURED: 'SANDBOX_CONFIGURED',
@@ -154,3 +156,12 @@ export class DemoPayPalPaymentService extends PaymentService {
 }
 
 export const defaultPaymentService = new DemoPayPalPaymentService();
+
+export const paymentRailService = {
+  getPaymentMethods: () => apiClient.get('/payment-methods'),
+  connectPaymentRail: (data) => apiClient.post('/payment-methods/connect', data),
+  toggleFreezePaymentMethod: (id) => apiClient.post(`/payment-methods/${id}/toggle-freeze`),
+  updatePaymentLimits: (id, data) => apiClient.post(`/payment-methods/${id}/limits`, data),
+  getPaymentOrders: () => apiClient.get('/payments/orders'),
+  getPaymentById: (id) => apiClient.get(`/payments/${id}`)
+};
